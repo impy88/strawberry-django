@@ -34,7 +34,7 @@ from graphql import (
     GraphQLWrappingType,
     get_argument_values,
 )
-from graphql.execution.collect_fields import collect_sub_fields
+from graphql.execution.collect_fields import collect_subfields, FieldDetails
 from graphql.language.ast import OperationType
 from graphql.type.definition import GraphQLResolveInfo, get_named_type
 from strawberry import UNSET, relay
@@ -646,13 +646,18 @@ def _get_selections(
     info: GraphQLResolveInfo,
     parent_type: GraphQLObjectType | GraphQLInterfaceType,
 ) -> dict[str, list[FieldNode]]:
-    return collect_sub_fields(
+    # Convert FieldNode objects to FieldDetails objects for GraphQL 3.3.0a9 compatibility
+    field_details = [FieldDetails(node=node, defer_usage=None) for node in info.field_nodes]
+    collected_fields = collect_subfields(
         info.schema,
         info.fragments,
         info.variable_values,
+        info.operation,
         cast("GraphQLObjectType", parent_type),
-        info.field_nodes,
+        field_details,
     )
+    # Convert back to the expected format (dict[str, list[FieldNode]])
+    return {name: [detail.node for detail in details] for name, details in collected_fields.fields.items()}
 
 
 def _generate_selection_resolve_info(
